@@ -1,2 +1,2 @@
 # ReAcc
-Custom designed program
+Program developed in Python using mainly Tkinter library
