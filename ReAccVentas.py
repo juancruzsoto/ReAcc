@@ -142,7 +142,6 @@ class RealizarOperacion(Principal):
 		self.Titulo=Label(self.miFrame1,bg="#A5B1B8", text="Registro de Actividades en curso",fg="#323638",font=("Ubuntu",30))
 		self.Titulo.pack(fill=BOTH,side="top")
 
-		'''
 		self.ID=0
 		self.Nombre=""
 		self.Telefono=""
@@ -150,15 +149,15 @@ class RealizarOperacion(Principal):
 		self.HoraIni=""
 		self.HoraFin=""
 		self.FechaOp=""
-		self.ReaCom=0'''
+		self.ReaCom=0
 
 
 		self.Idclte=Label(self.miFrame2,bg="#A5B1B8",text="Ingrese Id:",fg="black",height=2)
 		self.datoID=StringVar()
 		self.entradaID=Entry(self.miFrame2,textvariable=self.datoID,state="disabled")
-		#self.entradaID.bind("<Return>", filtra2)
-		self.botonID=Button(self.miFrame2, text="Filtrar",bg="#02475B",fg="#42D5FF",width=5,height=0,state="disabled")
-		#self.botonID.bind("<Return>", filtra2)
+		self.entradaID.bind("<Return>", self.filtrarCliente)
+		self.botonID=Button(self.miFrame2, text="Filtrar",bg="#02475B",fg="#42D5FF",width=5,height=0,state="disabled",command=self.filtrarCliente)
+		self.botonID.bind("<Return>", self.filtrarCliente)
 
 		self.Idclte.grid(row=0,column=0,padx=5)
 		self.entradaID.grid(row=0,column=1,padx=5)
@@ -168,7 +167,7 @@ class RealizarOperacion(Principal):
 		self.Encabezado=ttk.Treeview(self.miFrame2, columns=[1,2,3,4], show="headings",height=1)
 		self.Encabezado.column("#1", minwidth = 50, width=50, stretch=NO)
 		self.Encabezado.column("#2", minwidth = 250, width=250, stretch=NO)
-		self.Encabezado.column("#3", minwidth = 100, width=100, stretch=NO)
+		self.Encabezado.column("#3", minwidth = 120, width=120, stretch=NO)
 		self.Encabezado.column("#4", minwidth = 250, width=250, stretch=NO)
 		self.Encabezado.heading(1, text = "ID", anchor = W)
 		self.Encabezado.heading(2, text = "Nombre", anchor = W)
@@ -208,12 +207,13 @@ class RealizarOperacion(Principal):
 		self.ComenTxt.grid(row=0,column=3,padx=50)
 		self.Comentarios.grid(row=1,column=3,padx=50)
 
+		self.OptionListCliente = ["Carga de Pedido","Gestión de reclamo","Comunicación de despacho","Pauta de horario"]
 		self.OptionList = ["Carga de Pedido",
 			"Gestión de reclamo","Comunicación de despacho","Pauta de horario","Cliente nuevo","Comunicación para otro sector","Gestión WhatsApp","Gestión por Instagram",
 			"Gestión por Facebook","Gestión Web","Gestión PreVenta","Gestión Autorizada por Supervisor","Saliente ocupado","Saliente no atiende","Saliente numero erróneo"]
 		self.MotivoLl=Label(self.miFrame3,bg="#A5B1B8",text="Seleccione Motivo",fg="black",height=2)
 		self.botonIni=Button(self.miFrame3, text="Iniciar Operacion",bg="#02475B",fg="#42D5FF",width=20,height=0,command=self.iniciarOp)
-		self.botonFin=Button(self.miFrame3, text="Finalizar Operacion",bg="#02475B",fg="#42D5FF",width=20,height=0,state="disabled")
+		self.botonFin=Button(self.miFrame3, text="Finalizar Operacion",bg="#02475B",fg="#42D5FF",width=20,height=0,state="disabled",command=lambda:self.registrarLlamada(RSTelemarketer))
 		self.datoMot=StringVar()
 		self.ListaMotivo= ttk.Combobox(self.miFrame3,width=31,textvariable = NO,state="disabled",values=["Carga de Pedido",
 			"Gestión de reclamo","Comunicación de despacho","Pauta de horario","Cliente nuevo","Comunicación para otro sector","Gestión WhatsApp","Gestión por Instagram",
@@ -309,6 +309,108 @@ class RealizarOperacion(Principal):
 			hora=hora+s
 
 		return hora
+
+	def filtrarCliente(self,*args):
+
+		try:
+
+			self.ID=int(self.entradaID.get())
+
+			self.BD.cursor.execute("SELECT * FROM Clientes where IDCliente = %s"% (self.ID,))
+			
+			datos=self.BD.cursor.fetchall()
+			print(datos)
+			self.Nombre=datos[0][1]
+			self.Telefono=datos[0][2]
+			self.Email=datos[0][3]
+
+			self.Encabezado.insert("", 0,values=(self.ID,self.Nombre,self.Telefono,self.Email))
+		except:
+			messagebox.showerror("Operación Fallida","Verifique que el ID ingresado sea correcto",parent=self.raiz)	
+
+	def registrarLlamada(self,RSTelemarketer):
+
+		if self.ID!=0 or self.ListaMotivo.get() not in self.OptionListCliente:
+
+			if (messagebox.askyesno(message="¿Realizo Compra?", title="",parent=self.raiz)):
+				self.ReaCom=1
+			else:
+				self.ReaCom=0
+
+			if self.datoTLl.get()==0:
+				TipLL="Realizada"
+			else:
+				TipLL="Recibida"
+
+			self.EnOperacion=False
+
+			now = datetime.now()
+
+			self.HoraFin=self.FormatoTiempo(str(now.hour),str(now.minute),str(now.second))
+
+			self.tiempo.after_cancel(self.proceso)
+			FechaOp=self.calcularFech()
+
+			try:
+				self.BD.cursor.execute("INSERT INTO LlamadasVtas(IDCliente,RazonSocial,CorreoNuevo,NumeroWp,TipoLlamada,MotivoLlamada,Telemarketer,Fecha,horaInicio,horaFin,duracionOp,RealizoCompra,Observaciones) VALUES(%s,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')" % 
+						(self.ID,self.Nombre,self.entradaCN.get(),self.entradaNW.get(),TipLL,self.ListaMotivo.get(),RSTelemarketer,FechaOp,self.HoraIni,self.HoraFin,self.tiempo['text'],self.ReaCom,self.Comentarios.get(1.0,tk.END)[0:100]))
+				self.BD.conn.commit()
+
+				self.BD.cursor.execute("SELECT MAX(IDLlamada) FROM LlamadasVtas")
+				datos=self.BD.cursor.fetchall()
+
+				self.BD.cursor.execute("UPDATE EstadoUsers SET UltimaActividad = '%s' WHERE Usuario = '%s'"% (self.ListaMotivo.get(),self.user,))
+				self.BD.cursor.execute("UPDATE EstadoUsers SET HoraActFin = '%s' WHERE Usuario = '%s'"% (self.HoraFin,self.user,))
+				self.BD.cursor.execute("UPDATE EstadoUsers SET Estado = 'Disponible' WHERE Usuario = '%s'"% (self.user,))
+				self.BD.cursor.execute("UPDATE EstadoUsers SET ActEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
+				self.BD.cursor.execute("UPDATE EstadoUsers SET TiempoEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
+				self.BD.conn.commit()
+
+				self.iniciarCrono()
+				messagebox.showinfo("Operación Exitosa","La actividad fue registrada correctamente con ID '%s'" % (str(datos[0][0]),),parent=self.raiz)
+			except:
+				messagebox.showerror("Operación Fallida","No se pudo acceder a la Base de Datos",parent=self.raiz)
+			#print(entradaCN.get()," ",datoTLl.get()," ",datoMot.get())
+			self.Nombre=""
+
+			self.entradaID["state"]="disabled"
+			self.botonID["state"]="disabled"
+			self.entradaCN["state"]="disabled"
+			self.entradaNW["state"]="disabled"
+			self.botonRec["state"]="disabled"
+			self.botonRea["state"]="disabled"
+			self.ListaMotivo["state"]="disabled"
+			self.ListaMotivo.current(0)
+			self.botonFin["state"]="disabled"
+			self.botonIni["state"]="normal"
+			self.Comentarios.delete(1.0,tk.END)
+			self.Comentarios["state"]="disabled"
+
+			self.Encabezado.insert("", 0,values=("","","",""))
+			self.datoID.set("")
+			self.datoCN.set("")
+			self.datoNW.set("")
+			self.ID=0
+		else:
+			messagebox.showerror("Operación Fallida","Por favor, primero filtre un Cliente",parent=self.raiz)
+
+	def calcularFech(self):
+
+		now = datetime.now()
+		if len(str(now.day))==1:
+			FechaOp="0"+str(now.day)+"/"
+		else:
+			FechaOp=str(now.day)+"/"
+		if len(str(now.month))==1:
+			FechaOp=FechaOp+"0"+str(now.month)+"/"
+		else:
+			FechaOp=FechaOp+str(now.month)+"/"
+		if len(str(now.year))==1:
+			FechaOp=FechaOp+"0"+str(now.year)
+		else:
+			FechaOp=FechaOp+str(now.year)
+
+		return FechaOp
 
 	def Salir(self):
 
