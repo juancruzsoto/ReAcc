@@ -6,6 +6,8 @@ from tkinter import messagebox
 from tkinter import filedialog
 from tkinter import *
 from datetime import datetime, timedelta
+import collections
+
 class Principal:
 	def __init__(self, master,tk):
 		self.master = master
@@ -84,14 +86,14 @@ class Connection:
 		self.conn = sqlite3.connect(BDD)
 		self.cursor = self.conn.cursor()
 
-class RealizarOperacion(Principal):
+class RealizarOperacion():
 	def __init__(self,privilegios,RSTelemarketer,user,master):
 		self.raiz=tk.Toplevel(master)
 		self.raiz.focus_set()
 		self.raiz.grab_set()
 		self.version = "1.0"
 		self.EnOperacion = False
-		self.raiz.protocol("WM_DELETE_WINDOW", self.Salir())
+		self.raiz.protocol("WM_DELETE_WINDOW", lambda:self.Salir())
 		self.raiz.title("Registro de Acciones - Ventas         "+RSTelemarketer+"       V:"+self.version)
 		self.raiz.resizable(0,0)
 		self.raiz.geometry("800x550")
@@ -117,7 +119,7 @@ class RealizarOperacion(Principal):
 
 		self.archivoSalir=Menu(self.barramenu,tearoff=0)
 		self.archivoSalir.add_command(label="Cambiar de Usuario")
-		self.archivoSalir.add_command(label="Salir",command=self.Salir())
+		self.archivoSalir.add_command(label="Salir",command=lambda:self.Salir())
 
 		self.archivoProcesos=Menu(self.barramenu,tearoff=0)
 
@@ -125,7 +127,7 @@ class RealizarOperacion(Principal):
 			self.archivoProcesos.add_command(label="Exportar Registros")
 			self.archivoProcesos.add_command(label="Visualizar Estados")
 			self.archivoProcesos.add_command(label="Reporte Horas")
-			self.archivoProcesos.add_command(label="Modificar Usuario")
+			self.archivoProcesos.add_command(label="Modificar Usuario",command= lambda:ModificarUsuario(self.raiz,RSTelemarketer))
 			self.archivoProcesos.add_command(label="Agregar Usuario")
 		else:
 			self.archivoProcesos.add_command(label="Exportar Registros",state="disabled")
@@ -421,14 +423,183 @@ class RealizarOperacion(Principal):
 				self.BD.cursor.execute("UPDATE EstadoUsers SET TiempoEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
 				self.BD.conn.commit()
 				self.raiz.destroy()
-			else:
-				self.BD.cursor.execute("UPDATE EstadoUsers SET Estado = 'Desconectado' WHERE Usuario = '%s'"% (self.user,))
-				self.BD.cursor.execute("UPDATE EstadoUsers SET ActEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
-				self.BD.cursor.execute("UPDATE EstadoUsers SET TiempoEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
-				self.BD.conn.commit()
-				self.raiz.destroy()
+		else:
+			self.BD.cursor.execute("UPDATE EstadoUsers SET Estado = 'Desconectado' WHERE Usuario = '%s'"% (self.user,))
+			self.BD.cursor.execute("UPDATE EstadoUsers SET ActEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
+			self.BD.cursor.execute("UPDATE EstadoUsers SET TiempoEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
+			self.BD.conn.commit()
+			self.raiz.destroy()
 
-raizUser = tk.Tk()
-InicioSesion = Principal(raizUser,tk)
-raizUser.mainloop()
+class ModificarUsuario:
+
+	def __init__(self,raiz,RSTelemarketer):
+		self.raizResetPass=tk.Toplevel(raiz)
+		self.raizResetPass.focus_set()
+		self.raizResetPass.grab_set()
+		self.raizResetPass.title("Modificar Usuarios            "+RSTelemarketer)
+		self.raizResetPass.resizable(0,0)
+		self.raizResetPass.geometry("600x500")
+		self.frameResetPass=Frame(self.raizResetPass, width=600, height=80,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameResetPass.pack(fill=BOTH,side="top")
+		self.frameResetPass2=Frame(self.raizResetPass, width=600, height=420,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameResetPass2.pack(fill=BOTH,side="top",expand=YES)
+
+		self.Titulo=Label(self.frameResetPass,bg="#A5B1B8", text="Modificar Usuarios",fg="#323638",font=("Ubuntu",20))
+		self.Titulo.pack(fill=BOTH,side="top")
+
+		self.EncabezadoM=ttk.Treeview(self.frameResetPass2, columns=[1,2,3,4], show="headings",height=5)
+		self.EncabezadoM.column("#1", minwidth = 100, width=100, stretch=NO)
+		self.EncabezadoM.column("#2", minwidth = 100, width=100, stretch=NO)
+		self.EncabezadoM.column("#3", minwidth = 250, width=250, stretch=NO)
+		self.EncabezadoM.column("#4", minwidth = 100, width=100, stretch=NO)
+		self.EncabezadoM.heading(1, text = "Usuario", anchor = W)
+		self.EncabezadoM.heading(2, text = "Contraseña", anchor = W)
+		self.EncabezadoM.heading(3, text = "Razon Social", anchor = W)
+		self.EncabezadoM.heading(4, text = "Activo", anchor = W)
+
+		self.EncabezadoM.grid(row=0,column=0,columnspan=4,padx=10,pady=20)
+
+		self.scrolvert = Scrollbar(self.frameResetPass2, command = self.EncabezadoM.yview)
+		self.scrolvert.grid(row=0, column=4, sticky="nsew")
+		self.EncabezadoM.config(yscrollcommand=self.scrolvert.set)
+		self.EncabezadoM.bind('<<TreeviewSelect>>',self.infoUsers)
+
+		self.UsuarioR=Label(self.frameResetPass2,bg="#A5B1B8",text="Usuario:",fg="black",height=2)
+		self.ContraseñaR=Label(self.frameResetPass2,bg="#A5B1B8",text="Contraseña:",fg="black",height=2)
+		self.RazonSocialR=Label(self.frameResetPass2,bg="#A5B1B8",text="Razon Social:",fg="black",height=2)
+		self.Horarios=Label(self.frameResetPass2,bg="#A5B1B8",text="Horarios",fg="black",height=3)
+		self.LunAVie=Label(self.frameResetPass2,bg="#A5B1B8",text="Lunes a Viernes:",fg="black",height=2)
+		self.Sabado=Label(self.frameResetPass2,bg="#A5B1B8",text="Sabado:",fg="black",height=2)
+		self.CheckVar1 = IntVar()
+		self.CheckVar2 = IntVar()
+		self.C1 = Checkbutton(self.frameResetPass2, text = "Activo",bg="#A5B1B8", variable = self.CheckVar1, onvalue = 1, offvalue = 0)
+		self.C2 = Checkbutton(self.frameResetPass2, text = "Privilegios",bg="#A5B1B8", variable = self.CheckVar2, onvalue = 1, offvalue = 0, height=5, width = 20)
+		self.datosUsers=""
+		self.datoUsr=StringVar()
+		self.datoPwr=StringVar()
+		self.datoRsr=StringVar()
+		self.datoLaV=StringVar()
+		self.datoSab=StringVar()
+		self.entradaUsr=Entry(self.frameResetPass2,textvariable=self.datoUsr)
+		self.entradaPwr=Entry(self.frameResetPass2,textvariable=self.datoPwr)
+		self.entradaRsr=Entry(self.frameResetPass2,textvariable=self.datoRsr)
+		self.entradaLaV=Entry(self.frameResetPass2,textvariable=self.datoLaV)
+		self.entradaSab=Entry(self.frameResetPass2,textvariable=self.datoSab)
+
+		self.botonModificar=Button(self.frameResetPass2, text="Modificar Usuario",bg="#02475B",fg="#42D5FF",width=20,height=0,command=self.RealizarModificacion)
+
+
+		self.UsuarioR.grid(row=1,column=0,padx=5)
+		self.ContraseñaR.grid(row=1,column=2,padx=5)
+		self.entradaUsr.grid(row=1,column=1,padx=5)
+		self.entradaPwr.grid(row=1,column=3,padx=5)
+		self.RazonSocialR.grid(row=2,column=0,padx=5)
+		self.entradaRsr.grid(row=2,column=1,padx=5)
+		self.C1.grid(row=2,column=2,padx=5)
+		self.C2.grid(row=2,column=3,padx=5)
+		self.Horarios.grid(row=3,column=0)
+		self.LunAVie.grid(row=3,column=1,padx=5)
+		self.entradaLaV.grid(row=4,column=1,padx=5)
+		self.Sabado.grid(row=3,column=3,padx=5)
+		self.entradaSab.grid(row=4,column=3,padx=5)
+
+
+		self.botonModificar.grid(row=5,column=0,columnspan=4,pady=35,padx=15)
+
+		self.BD=Connection('DatabaseReAcc.db')
+
+		self.BD.cursor.execute("SELECT Usuario,contrasena,RazonSocial,estado FROM UsersVentas")
+		datos=self.BD.cursor.fetchall()
+		datos2=[]
+		datosExp=datos
+		for y in range(len(datos)):
+			for x in datos[y]:
+				datos2.append(x)
+			if datos2[3]:
+				datos2.append("Si")
+			else:
+				datos2.append("No")
+			datos2.pop(3)
+			self.EncabezadoM.insert("", 0,values=datos2)
+			datos2=[]
+
+	def RealizarModificacion(self):
+
+		try:
+			self.BD.cursor.execute("UPDATE UsersVentas SET Usuario = '%s' WHERE Usuario = '%s'"% (self.entradaUsr.get(),self.datosUsers[0],))
+			self.BD.cursor.execute("UPDATE UsersVentas SET contrasena = '%s' WHERE Usuario = '%s'"% (self.entradaPwr.get(),self.datosUsers[0],))
+			self.BD.cursor.execute("UPDATE UsersVentas SET RazonSocial = '%s' WHERE Usuario = '%s'"% (self.entradaRsr.get(),self.datosUsers[0],))
+			self.BD.cursor.execute("UPDATE UsersVentas SET estado = %i WHERE Usuario = '%s'"% (self.CheckVar1.get(),self.datosUsers[0],))
+			self.BD.cursor.execute("UPDATE UsersVentas SET privilegios = %i WHERE Usuario = '%s'"% (self.CheckVar2.get(),self.datosUsers[0],))
+			self.BD.cursor.execute("UPDATE UsersVentas SET intentos = 0 WHERE Usuario = '%s'"% (self.datosUsers[0],))
+			self.BD.cursor.execute("UPDATE EstadoUsers SET Activo = %i WHERE Usuario = '%s'"% (self.CheckVar1.get(),self.datosUsers[0],))
+			self.BD.cursor.execute("UPDATE UsersVentas SET horasLaV = %i WHERE Usuario = '%s'"% (int(self.entradaLaV.get()),self.datosUsers[0],))
+			self.BD.cursor.execute("UPDATE UsersVentas SET horasSab = %i WHERE Usuario = '%s'"% (int(self.entradaSab.get()),self.datosUsers[0],))
+
+			self.BD.conn.commit()
+
+			self.BD.cursor.execute("SELECT Usuario,contrasena,RazonSocial,estado FROM UsersVentas")
+			datos=self.BD.cursor.fetchall()
+			datos2=[]
+			datosExp=datos
+			self.EncabezadoM.delete(*self.EncabezadoM.get_children())
+			for y in range(len(datos)):
+				for x in datos[y]:
+					datos2.append(x)
+				if datos2[3]:
+					datos2.append("Si")
+				else:
+					datos2.append("No")
+				datos2.pop(3)
+				self.EncabezadoM.insert("", 0,values=datos2)
+				datos2=[]
+
+			messagebox.showinfo("Modificación Realizada con Éxito","Los datos se registraron correctamente",parent=self.raizResetPass)
+		except:
+			messagebox.showerror("No se pudo realizar la Modificación","Error al acceder a la Base de Datos",parent=self.raizResetPass)
+
+
+	def infoUsers(self,event):
+		global EncabezadoM
+		global datosUsers
+		global datoUsr
+		global datoPwr 
+		global datoRsr
+		global datoLaV
+		global datoSab
+		global entradaUsr
+		global entradaPwr
+		global entradaRsr
+		global CheckVar1
+		global CheckVar2
+
+		item=event.widget.selection()
+		self.datosUsers=self.EncabezadoM.item(item[0])["values"]
+
+		self.datoUsr.set(self.datosUsers[0])
+		self.datoPwr.set(self.datosUsers[1])
+		self.datoRsr.set(self.datosUsers[2])
+
+
+		self.BD.cursor.execute("SELECT estado,privilegios,horasLaV,horasSab FROM UsersVentas WHERE Usuario= '%s'" % (self.datosUsers[0],))
+		datos=self.BD.cursor.fetchall()
+
+		if datos[0][0]:
+			self.CheckVar1.set(1)
+		else:
+			self.CheckVar1.set(0)
+
+		if datos[0][1]:
+			self.CheckVar2.set(1)
+		else:
+			self.CheckVar2.set(0)
+
+		self.datoLaV.set(datos[0][2])
+		self.datoSab.set(datos[0][3])
+
+
+if __name__ == '__main__':
+	raizUser = tk.Tk()
+	InicioSesion = Principal(raizUser,tk)
+	raizUser.mainloop()
 
