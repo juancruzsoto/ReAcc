@@ -12,7 +12,7 @@ class Principal:
 	def __init__(self, master,tk):
 		self.master = master
 		self.master.title("Registro de Acciones - Ventas")
-		self.master.iconbitmap('C:/Registro Acciones Ventas/223.ico')
+		self.master.iconbitmap('IconoRA.ico')
 		self.master.resizable(0,0)
 		self.master.geometry("350x300")
 
@@ -128,7 +128,7 @@ class RealizarOperacion():
 			self.archivoProcesos.add_command(label="Visualizar Estados")
 			self.archivoProcesos.add_command(label="Reporte Horas")
 			self.archivoProcesos.add_command(label="Modificar Usuario",command= lambda:ModificarUsuario(self.raiz,RSTelemarketer))
-			self.archivoProcesos.add_command(label="Agregar Usuario")
+			self.archivoProcesos.add_command(label="Agregar Usuario",command= lambda:AltaUsuario(self.raiz))
 		else:
 			self.archivoProcesos.add_command(label="Exportar Registros",state="disabled")
 			self.archivoProcesos.add_command(label="Visualizar Estados",state="disabled")
@@ -596,6 +596,60 @@ class ModificarUsuario:
 
 		self.datoLaV.set(datos[0][2])
 		self.datoSab.set(datos[0][3])
+
+class AltaUsuario:
+
+	def __init__(self,raiz):
+		self.raizAltaUser=tk.Toplevel(raiz)
+		self.raizAltaUser.focus_set()
+		self.raizAltaUser.grab_set()
+		self.raizAltaUser.title("Alta de Usuarios")
+		self.raizAltaUser.resizable(0,0)
+		self.raizAltaUser.geometry("400x300")
+		self.frameAltaUser=Frame(self.raizAltaUser, width=400, height=80,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameAltaUser.pack(fill=BOTH,side="top")
+		self.frameAltaUser2=Frame(self.raizAltaUser, width=400, height=220,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameAltaUser2.pack(fill=BOTH,side="top",expand=YES)
+
+		self.Titulo=Label(self.frameAltaUser,bg="#A5B1B8", text="Alta de Usuario",fg="#323638",font=("Ubuntu",20))
+		self.Titulo.pack(fill=BOTH,side="top")
+		
+		self.UsuarioAU=Label(self.frameAltaUser2,bg="#A5B1B8",text="Ingrese Usuario Nuevo:",fg="black",height=2)
+		self.ContraseñaAU=Label(self.frameAltaUser2,bg="#A5B1B8",text="Contraseña por Default:",fg="black",height=2)
+		self.RazonSocialAU=Label(self.frameAltaUser2,bg="#A5B1B8",text="Ingrese Razon Social:",fg="black",height=2)
+		self.datoUsau=StringVar()
+		self.datoPwau=StringVar()
+		self.datoRsau=StringVar()
+		self.datoPwau.set("1234")
+		self.entradaUsau=Entry(self.frameAltaUser2,textvariable=self.datoUsau)
+		self.entradaPwau=Entry(self.frameAltaUser2,textvariable=self.datoPwau)
+		self.entradaRsau=Entry(self.frameAltaUser2,textvariable=self.datoRsau)
+
+		self.UsuarioAU.grid(row=1,column=0,padx=45,pady=4)
+		self.ContraseñaAU.grid(row=2,column=0,padx=45,pady=4)
+		self.RazonSocialAU.grid(row=3,column=0,padx=45,pady=4)
+		self.entradaUsau.grid(row=1,column=1)
+		self.entradaPwau.grid(row=2,column=1)	
+		self.entradaRsau.grid(row=3,column=1)
+
+		self.BD=Connection('DatabaseReAcc.db')
+
+		self.botonReaAlt=Button(self.frameAltaUser2, text="Dar de alta",bg="#02475B",fg="#42D5FF",width=15,height=0,command=self.DarAlta)
+		self.botonReaAlt.grid(row=4,column=0,columnspan=2,pady=10,padx=10)
+
+	def DarAlta(self):
+
+		try:
+			self.BD.cursor.execute("INSERT INTO UsersVentas(Usuario,contrasena,RazonSocial,intentos,estado,privilegios,horasLaV,horasSab) values('%s','%s','%s',0,1,0,0,0)"% (self.entradaUsau.get(),self.entradaPwau.get(),self.entradaRsau.get(),))
+			self.BD.cursor.execute("INSERT INTO EstadoUsers(Usuario,RazonSocial,UltimaActividad,HoraActFin,ActEnCurso,TiempoEnCurso,Estado,Activo) values('%s','%s',' ',' ',' ',' ','Desconectado',1)"% (self.entradaUsau.get(),self.entradaRsau.get(),))
+
+			self.BD.conn.commit()
+			messagebox.showinfo("Operacion Realizada con Éxito","El Usuario se dio de alta correctamente",parent=self.raizAltaUser)
+			self.datoUsau.set("")
+			self.datoRsau.set("")
+		except:
+			messagebox.showerror("No se pudo dar de Alta Usuario","Error al acceder a la Base de Datos",parent=self.raizAltaUser)
+
 
 
 if __name__ == '__main__':
