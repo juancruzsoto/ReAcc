@@ -6,7 +6,8 @@ from tkinter import messagebox
 from tkinter import filedialog
 from tkinter import *
 from datetime import datetime, timedelta
-import collections
+from tkcalendar import Calendar, DateEntry
+import xlsxwriter
 
 class Principal:
 	def __init__(self, master,tk):
@@ -124,7 +125,7 @@ class RealizarOperacion():
 		self.archivoProcesos=Menu(self.barramenu,tearoff=0)
 
 		if privilegios:
-			self.archivoProcesos.add_command(label="Exportar Registros")
+			self.archivoProcesos.add_command(label="Exportar Registros",command= lambda:ExportarRegistros(self.raiz,RSTelemarketer))
 			self.archivoProcesos.add_command(label="Visualizar Estados")
 			self.archivoProcesos.add_command(label="Reporte Horas")
 			self.archivoProcesos.add_command(label="Modificar Usuario",command= lambda:ModificarUsuario(self.raiz,RSTelemarketer))
@@ -650,6 +651,183 @@ class AltaUsuario:
 		except:
 			messagebox.showerror("No se pudo dar de Alta Usuario","Error al acceder a la Base de Datos",parent=self.raizAltaUser)
 
+class ExportarRegistros:
+
+	def __init__(self,raiz,RSTelemarketer):
+		self.raizExpReg=tk.Toplevel(raiz)
+		self.raizExpReg.focus_set()
+		self.raizExpReg.grab_set()
+		self.raizExpReg.title("Exportar Registros            "+RSTelemarketer)
+		self.raizExpReg.resizable(0,0)
+		self.raizExpReg.geometry("1300x650")
+		self.frameExpReg=Frame(self.raizExpReg, width=1300, height=80,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameExpReg.pack(fill=BOTH,side="top")
+		self.frameExpReg2=Frame(self.raizExpReg, width=1300, height=570,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameExpReg2.pack(fill=BOTH,side="top",expand=YES)
+
+		self.Titulo=Label(self.frameExpReg,bg="#A5B1B8", text="Exportar Registro de Llamadas",fg="#323638",font=("Ubuntu",20))
+		self.Titulo.pack(fill=BOTH,side="top")
+			
+		self.TextFI=Label(self.frameExpReg2,bg="#A5B1B8", text="Desde: ",fg="#323638",font=("Ubuntu",10))
+		self.TextFI.place(x=50,y=9)
+
+		now = datetime.now()
+
+		self.calendar1 = DateEntry(self.frameExpReg2, selectmode="day", locale="es_AR", year=now.year, month=now.month, day=now.day)
+		self.calendar1.place(x=100,y=10)
+
+		self.TextFF=Label(self.frameExpReg2,bg="#A5B1B8", text="Hasta: ",fg="#323638",font=("Ubuntu",10))
+		self.TextFF.place(x=200,y=9)
+
+		self.calendar2 = DateEntry(self.frameExpReg2, selectmode="day", locale="es_AR", year=now.year, month=now.month, day=now.day)
+		self.calendar2.place(x=250,y=10)
+
+
+		self.botonBusReg=Button(self.frameExpReg2, text="Buscar",bg="#02475B",fg="#42D5FF",width=15,height=0,command=self.filtrado2)
+		self.botonBusReg.grid(row=0,column=1,pady=8,padx=200)	
+
+		self.botonExpReg=Button(self.frameExpReg2, text="Exportar",bg="#02475B",fg="#42D5FF",width=15,height=0,command= self.Exportan2)
+		self.botonExpReg.grid(row=2,column=1,columnspan=3)	
+
+		self.BD=Connection('DatabaseReAcc.db')
+
+		self.EncabezadoER=ttk.Treeview(self.frameExpReg2, columns=[1,2,3,4,5,6,7,8,9,10,11,12,13,14], show="headings",height=20)
+		self.EncabezadoER.column("#1", minwidth = 80, width=80, stretch=NO)
+		self.EncabezadoER.column("#2", minwidth = 60, width=60, stretch=NO)
+		self.EncabezadoER.column("#3", minwidth = 180, width=180, stretch=NO)
+		self.EncabezadoER.column("#4", minwidth = 70, width=70, stretch=NO)
+		self.EncabezadoER.column("#5", minwidth = 80, width=80, stretch=NO)
+		self.EncabezadoER.column("#6", minwidth = 100, width=100, stretch=NO)
+		self.EncabezadoER.column("#7", minwidth = 100, width=100, stretch=NO)
+		self.EncabezadoER.column("#8", minwidth = 100, width=100, stretch=NO)
+		self.EncabezadoER.column("#9", minwidth = 67, width=67, stretch=NO)
+		self.EncabezadoER.column("#10", minwidth = 70, width=70, stretch=NO)
+		self.EncabezadoER.column("#11", minwidth = 65, width=65, stretch=NO)
+		self.EncabezadoER.column("#12", minwidth = 65, width=65, stretch=NO)
+		self.EncabezadoER.column("#13", minwidth = 65, width=65, stretch=NO)
+		self.EncabezadoER.column("#14", minwidth = 150, width=150,stretch=NO)
+
+		self.EncabezadoER.heading(1, text = "IDLlamada", anchor = W)
+		self.EncabezadoER.heading(2, text = "IDCliente", anchor = W)
+		self.EncabezadoER.heading(3, text = "Razon Social", anchor = W)
+		self.EncabezadoER.heading(4, text = "E-mail Nuevo", anchor = W)
+		self.EncabezadoER.heading(5, text = "Numero WhatsApp", anchor = W)
+		self.EncabezadoER.heading(6, text = "Tipo Llamada", anchor = W)
+		self.EncabezadoER.heading(7, text = "Motivo Llamada", anchor = W)
+		self.EncabezadoER.heading(8, text = "Telemarketer", anchor = W)
+		self.EncabezadoER.heading(9, text = "Fecha", anchor = W)
+		self.EncabezadoER.heading(10, text = "Hora Inicio", anchor = W)
+		self.EncabezadoER.heading(11, text = "Hora Fin", anchor = W)
+		self.EncabezadoER.heading(12, text = "Duración", anchor = W)
+		self.EncabezadoER.heading(13, text = "Compro", anchor = W)
+		self.EncabezadoER.heading(14, text="Observaciones",anchor=W)
+
+		self.EncabezadoER.grid(row=1,column=0,columnspan=6,padx=5,pady=10)
+
+		self.scrolvert = Scrollbar(self.frameExpReg2, command = self.EncabezadoER.yview)
+		self.scrolvert.grid(row=1, column=6, sticky="nsew")
+		self.EncabezadoER.config(yscrollcommand=self.scrolvert.set)
+
+		self.datosExp = ""
+
+	def filtrado2(self):
+		'''
+		pos=0
+		if calendar1.get_date()[2]=="/":
+			dia1=calendar1.get_date()[0]+calendar1.get_date()[1]
+			dia1=int(dia1)
+			pos=3
+		else:
+			dia1=calendar1.get_date()[0]
+			dia1=int(dia1)
+			pos=2
+		if calendar1.get_date()[pos+2]=="/":
+			mes1=calendar1.get_date()[pos]+calendar1.get_date()[pos+1]
+			pos=pos+3
+			mes1=int(mes1)
+		else:
+			mes1=calendar1.get_date()[pos]
+			pos=pos+2
+			mes1=int(mes1)
+		año1="20"+calendar1.get_date()[pos]+calendar1.get_date()[pos+1]
+		año1=int(año1)
+
+		pos=0
+		if calendar2.get_date()[2]=="/":
+			dia2=calendar2.get_date()[0]+calendar2.get_date()[1]
+			dia2=int(dia2)
+			pos=3
+		else:
+			dia2=calendar2.get_date()[0]
+			dia2=int(dia2)
+			pos=2
+		if calendar2.get_date()[pos+2]=="/":
+			mes2=calendar2.get_date()[pos]+calendar2.get_date()[pos+1]
+			pos=pos+3
+			mes2=int(mes2)
+		else:
+			mes2=calendar2.get_date()[pos]
+			pos=pos+2
+			mes2=int(mes2)
+		año2="20"+calendar2.get_date()[pos]+calendar2.get_date()[pos+1]
+		año2=int(año2)
+		'''
+		if self.calendar1.get_date()>self.calendar2.get_date():
+			messagebox.showerror("Fechas Erroneas","Por favor elija un rango de fecha valido",parent=self.raizExpReg)
+			return
+
+		self.EncabezadoER.delete(*self.EncabezadoER.get_children())
+		#try:
+
+		self.BD.cursor.execute("SELECT * FROM (SELECT * FROM LlamadasVtas Where Fecha >= '%s') Where Fecha <= '%s'" % (str(self.calendar1.get_date()),str(self.calendar2.get_date())+" 00:00:00.000",))
+		
+		datos = self.BD.cursor.fetchall()
+
+		datos2=[]
+		self.datosExp=datos
+		for y in range(len(datos)):
+			for x in datos[y]:
+				datos2.append(x)
+			if datos2[12]:
+				datos2.insert(13, 'Si')
+			else:
+				datos2.insert(13, 'No')
+			datos2.pop(12)
+			self.EncabezadoER.insert("", 0,values=datos2)
+			datos2=[]
+		#except:
+			#messagebox.showerror("Operación Fallida","No se pudo acceder a la Base de Datos")	
+
+	def Exportan2(self):
+
+		f = filedialog.asksaveasfile(mode='a',defaultextension=".xlsx", filetypes=[("Ficheros Excel","*.xlsx")])
+		if f is None: # asksaveasfile return `None` if dialog closed with "cancel".
+			return
+
+		#try:
+		libro = xlsxwriter.Workbook(f.name)
+		hoja = libro.add_worksheet()
+		Cabecera=["IDLlamada","IDCliente","Razon Social","E-mail","Numero WhatsApp","Tipo Llamada","Motivo Llamada","Telemarketer","Fecha","Hora Inicio","Hora Fin","Duración","Compro","Observaciones"]
+		
+		for x in range(len(Cabecera)):
+			hoja.write(0, x, Cabecera[x])
+
+		for y in range(len(self.datosExp)):
+			for x in range(8):
+				hoja.write(y+1, x, self.datosExp[y][x])
+			hoja.write(y+1, 8, datetime.strptime(str(self.datosExp[y][8]), '%Y-%m-%d %H:%M:%S'))
+			hoja.write(y+1, 9, datetime.strptime(str(self.datosExp[y][9]), '%H:%M:%S'))
+			hoja.write(y+1, 10, datetime.strptime(str(self.datosExp[y][10]), '%H:%M:%S'))
+			hoja.write(y+1, 11, datetime.strptime(str(self.datosExp[y][11]), '%H:%M:%S'))
+			if self.datosExp[y][12]:
+				hoja.write(y+1, 12, "Si")
+			else:
+				hoja.write(y+1, 12, "No")
+			hoja.write(y+1,13,self.datosExp[y][13])
+		libro.close()
+		messagebox.showinfo("Operación Realizada con Éxito","El archivo se exportó correctamente",parent=self.raizExpReg)
+		#except:
+		#	messagebox.showerror("Operación Fallida","No se pudo exportar el archivo",parent=self.raizExpReg)
 
 
 if __name__ == '__main__':
