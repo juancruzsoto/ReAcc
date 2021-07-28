@@ -2,12 +2,16 @@ import sqlite3
 import pyodbc
 from tkinter import ttk
 import tkinter as tk
+#from tkinter import tkentrycomplete
 from tkinter import messagebox
 from tkinter import filedialog
 from tkinter import *
 from datetime import datetime, timedelta
 from tkcalendar import Calendar, DateEntry
 import xlsxwriter
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg, NavigationToolbar2Tk)
 
 class Principal:
 	def __init__(self, master,tk):
@@ -17,23 +21,21 @@ class Principal:
 		self.master.resizable(0,0)
 		self.master.geometry("350x300")
 
-		self.frameUser = Frame(self.master, width=400, height=250,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameUser = Frame(self.master, width=400, height=250,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.frameUser.pack(fill=BOTH,side="top",expand=YES)
 		
-		self.IniciarSesion=Label(self.frameUser,bg="#A5B1B8",text="Iniciar Sesion",fg="black",height=2,font=("Ubuntu",20))
-		self.Usuario=Label(self.frameUser,bg="#A5B1B8",text="Ingrese Usuario:",fg="black",height=2)
-		self.Contraseña=Label(self.frameUser,bg="#A5B1B8",text="Ingrese Contraseña:",fg="black",height=2)
+		self.IniciarSesion=Label(self.frameUser,bg="#9BBCD1",text="Iniciar Sesion",fg="black",height=2,font=("Ubuntu",20))
+		self.Usuario=Label(self.frameUser,bg="#9BBCD1",text="Ingrese Usuario:",fg="black",height=2)
+		self.Contraseña=Label(self.frameUser,bg="#9BBCD1",text="Ingrese Contraseña:",fg="black",height=2)
 		self.datoUs=StringVar()
 		self.datoPw=StringVar()
 		self.entradaUs=Entry(self.frameUser,textvariable=self.datoUs)
 		self.entradaPw=Entry(self.frameUser,textvariable=self.datoPw,show="*")
-		#self.entradaUs.bind("<Return>", self.acceder)
-		#self.entradaPw.bind("<Return>", self.acceder)
 		self.entradaUs.bind("<Return>", self.verificacion)
 		self.entradaPw.bind("<Return>", self.verificacion)
-		self.botonIngresar=Button(self.frameUser, text="Ingresar",bg="#02475B",fg="#42D5FF",width=10,height=0,command=self.verificacion)
+		self.botonIngresar=Button(self.frameUser, text="Ingresar",bg="#2D373D",fg="#42D5FF",width=10,height=0,command=self.verificacion)
 		self.botonIngresar.bind("<Return>", self.verificacion)
-		self.botonCamCon=Button(self.frameUser, text="Cambiar Contraseña",bg="#02475B",fg="#42D5FF",width=15,height=0)
+		self.botonCamCon=Button(self.frameUser, text="Cambiar Contraseña",bg="#2D373D",fg="#42D5FF",width=15,height=0,command=lambda:CambiarContrasena(master))
 
 		self.IniciarSesion.grid(row=0,column=0,columnspan=2,pady=10,padx=80)
 		self.Usuario.grid(row=1,column=0,pady=10)
@@ -46,6 +48,9 @@ class Principal:
 		self.RSTelemarketer = ""
 		self.privi = None
 		self.user = ""
+
+	def GetRaiz(self):
+		return self.IniciarSesion
 
 	def verificacion(self,*args):
 
@@ -82,6 +87,61 @@ class Principal:
 
 		self.BD.conn.close() 
 
+class CambiarContrasena(Principal):
+
+	def __init__(self,master):
+		self.raizCamCon=tk.Toplevel(master)
+		self.raizCamCon.title("Cambiar de Contraseña")
+		self.raizCamCon.resizable(0,0)
+		self.raizCamCon.geometry("400x210")
+		self.frameCamCon=Frame(self.raizCamCon, width=400, height=250,bg="#9BBCD1",relief="groove", borderwidth=5)
+		self.frameCamCon.pack(fill=BOTH,side="top",expand=YES)	
+
+		self.BD = Connection('DatabaseReAcc.db')
+
+		self.datoUscc=StringVar()
+		self.datoPwcc=StringVar()
+		self.datoPwcn=StringVar()
+		self.UsuarioCC=Label(self.frameCamCon,bg="#9BBCD1",text="Ingrese Usuario:",fg="black",height=2)
+		self.ContraseñaV=Label(self.frameCamCon,bg="#9BBCD1",text="Ingrese Contraseña Actual:",fg="black",height=2)
+		self.ContraseñaN=Label(self.frameCamCon,bg="#9BBCD1",text="Ingrese Contraseña Nueva:",fg="black",height=2)
+		self.entradaUscc=Entry(self.frameCamCon,textvariable=self.datoUscc)
+		self.entradaPwcc=Entry(self.frameCamCon,textvariable=self.datoPwcc,show="*")
+		self.entradaPwcn=Entry(self.frameCamCon,textvariable=self.datoPwcn,show="*")
+
+		self.UsuarioCC.grid(row=1,column=0,padx=30,pady=4)
+		self.ContraseñaV.grid(row=2,column=0,padx=30,pady=4)
+		self.ContraseñaN.grid(row=3,column=0,padx=30,pady=4)
+		self.entradaUscc.grid(row=1,column=1)
+		self.entradaPwcc.grid(row=2,column=1)	
+		self.entradaPwcn.grid(row=3,column=1)	
+
+		self.botonReaCam=Button(self.frameCamCon, text="Realizar Cambio",bg="#2D373D",fg="#42D5FF",width=15,height=0,command=lambda:self.validacion())
+		self.botonReaCam.grid(row=4,column=0,columnspan=2,pady=10)
+
+
+	def validacion(self):
+		self.BD.cursor.execute("SELECT contrasena FROM UsersVentas where Usuario = '%s'"% (self.entradaUscc.get(),))
+		datos=self.BD.cursor.fetchall()
+
+		password=self.entradaPwcc.get()
+
+		if datos!=[]:
+			if password==datos[0][0]:
+				try:
+					self.BD.cursor.execute("UPDATE UsersVentas SET contrasena = '%s' WHERE Usuario = '%s'"% (self.entradaPwcn.get(),self.entradaUscc.get(),))
+					self.BD.conn.commit()
+					messagebox.showinfo("Operacion Realizada con Éxito","La contraseña se cambio correctamente",parent=self.raizCamCon)
+					self.raizCamCon.destroy()
+				except:
+					messagebox.showerror("No se pudo Cambiar Contraseña","Error al acceder a la Base de Datos",parent=self.raizCamCon)
+			else:
+				messagebox.showerror("No se pudo Cambiar Contraseña","Contraseña Actual Invalida",parent=self.raizCamCon)
+		else:
+			messagebox.showerror("No se pudo Cambiar Contraseña","Usuario no existente",parent=self.raizCamCon)
+
+
+
 class Connection:
 	def __init__(self,BDD):
 		self.conn = sqlite3.connect(BDD)
@@ -90,21 +150,21 @@ class Connection:
 class RealizarOperacion():
 	def __init__(self,privilegios,RSTelemarketer,user,master):
 		self.raiz=tk.Toplevel(master)
-		self.raiz.focus_set()
-		self.raiz.grab_set()
+		#self.raiz.focus_set()
+		#self.raiz.grab_set()
 		self.version = "1.0"
 		self.EnOperacion = False
-		self.raiz.protocol("WM_DELETE_WINDOW", lambda:self.Salir())
+		self.raiz.protocol("WM_DELETE_WINDOW", lambda:self.Salir(master,False))
 		self.raiz.title("Registro de Acciones - Ventas         "+RSTelemarketer+"       V:"+self.version)
 		self.raiz.resizable(0,0)
-		self.raiz.geometry("800x550")
-		self.raiz.config(bg="#A5B1B8")
+		self.raiz.geometry("800x550+300+40")
+		self.raiz.config(bg="#9BBCD1")
 
-		self.miFrame1=Frame(self.raiz, width=800, height=100,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.miFrame1=Frame(self.raiz, width=800, height=100,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.miFrame1.pack(fill=BOTH,side="top")
-		self.miFrame2=Frame(self.raiz, width=800, height=200,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.miFrame2=Frame(self.raiz, width=800, height=200,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.miFrame2.pack(fill=BOTH,side="top",expand=YES)
-		self.miFrame3=Frame(self.raiz, width=800, height=100,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.miFrame3=Frame(self.raiz, width=800, height=100,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.miFrame3.pack(fill=BOTH,side="top",expand=YES)
 
 		self.user=user
@@ -112,23 +172,23 @@ class RealizarOperacion():
 		self.BD=Connection('DatabaseReAcc.db')
 
 		self.proceso2=None
-		self.tiempo2=Label(self.raiz,bg="#A5B1B8", fg='red', font=("","12"))
+		self.tiempo2=Label(self.raiz,bg="#9BBCD1", fg='red', font=("","12"))
 		self.iniciarCrono()
 
-		self.barramenu=Menu(self.raiz,background="#02475B",relief="groove",fg="black")
+		self.barramenu=Menu(self.raiz,background="#9BBCD1",relief="groove",fg="black")
 		self.raiz.config(menu=self.barramenu)
 
 		self.archivoSalir=Menu(self.barramenu,tearoff=0)
-		self.archivoSalir.add_command(label="Cambiar de Usuario")
-		self.archivoSalir.add_command(label="Salir",command=lambda:self.Salir())
+		self.archivoSalir.add_command(label="Cambiar de Usuario",command=lambda:self.Salir(master,True))
+		self.archivoSalir.add_command(label="Salir",command=lambda:self.Salir(master,False))
 
 		self.archivoProcesos=Menu(self.barramenu,tearoff=0)
 
 		if privilegios:
 			self.archivoProcesos.add_command(label="Exportar Registros",command= lambda:ExportarRegistros(self.raiz,RSTelemarketer))
-			self.archivoProcesos.add_command(label="Visualizar Estados")
-			self.archivoProcesos.add_command(label="Reporte Horas")
-			self.archivoProcesos.add_command(label="Modificar Usuario",command= lambda:ModificarUsuario(self.raiz,RSTelemarketer))
+			self.archivoProcesos.add_command(label="Visualizar Estados",command=lambda:EstadoUsers(self.raiz,RSTelemarketer))
+			self.archivoProcesos.add_command(label="Reporte Horas",command=lambda:ReporteHoras(self.raiz,RSTelemarketer))
+			self.archivoProcesos.add_command(label="Modificar Usuario",command= lambda: ModificarUsuario(self.raiz,RSTelemarketer))
 			self.archivoProcesos.add_command(label="Agregar Usuario",command= lambda:AltaUsuario(self.raiz))
 		else:
 			self.archivoProcesos.add_command(label="Exportar Registros",state="disabled")
@@ -137,12 +197,10 @@ class RealizarOperacion():
 			self.archivoProcesos.add_command(label="Modificar Usuario",state="disabled")
 			self.archivoProcesos.add_command(label="Agregar Usuario",state="disabled")
 
-
-
 		self.barramenu.add_cascade(label="Procesos",menu=self.archivoProcesos)
 		self.barramenu.add_cascade(label="Salir",menu=self.archivoSalir)
 
-		self.Titulo=Label(self.miFrame1,bg="#A5B1B8", text="Registro de Actividades en curso",fg="#323638",font=("Ubuntu",30))
+		self.Titulo=Label(self.miFrame1,bg="#9BBCD1", text="Registro de Actividades en curso",fg="#323638",font=("Ubuntu",30))
 		self.Titulo.pack(fill=BOTH,side="top")
 
 		self.ID=0
@@ -155,11 +213,11 @@ class RealizarOperacion():
 		self.ReaCom=0
 
 
-		self.Idclte=Label(self.miFrame2,bg="#A5B1B8",text="Ingrese Id:",fg="black",height=2)
+		self.Idclte=Label(self.miFrame2,bg="#9BBCD1",text="Ingrese Id:",fg="black",height=2)
 		self.datoID=StringVar()
 		self.entradaID=Entry(self.miFrame2,textvariable=self.datoID,state="disabled")
 		self.entradaID.bind("<Return>", self.filtrarCliente)
-		self.botonID=Button(self.miFrame2, text="Filtrar",bg="#02475B",fg="#42D5FF",width=5,height=0,state="disabled",command=self.filtrarCliente)
+		self.botonID=Button(self.miFrame2, text="Filtrar",bg="#2D373D",fg="#42D5FF",width=5,height=0,state="disabled",command=self.filtrarCliente)
 		self.botonID.bind("<Return>", self.filtrarCliente)
 
 		self.Idclte.grid(row=0,column=0,padx=5)
@@ -180,11 +238,11 @@ class RealizarOperacion():
 		self.Encabezado.grid(row=1,column=0,columnspan=4,padx=50,pady=10)
 
 
-		self.CorreoN=Label(self.miFrame3,bg="#A5B1B8",text="¿Correo Nuevo?",fg="black",height=2)
+		self.CorreoN=Label(self.miFrame3,bg="#9BBCD1",text="¿Correo Nuevo?",fg="black",height=2)
 		self.datoCN=StringVar()
 		self.entradaCN=Entry(self.miFrame3,textvariable=self.datoCN,width=30,state="disabled")
 
-		self.NumeroW=Label(self.miFrame3,bg="#A5B1B8",text="Numero WhatsApp",fg="black",height=2)
+		self.NumeroW=Label(self.miFrame3,bg="#9BBCD1",text="Numero WhatsApp",fg="black",height=2)
 		self.datoNW=StringVar()
 		self.entradaNW=Entry(self.miFrame3,textvariable=self.datoNW,width=20,state="disabled")
 
@@ -194,16 +252,16 @@ class RealizarOperacion():
 		self.NumeroW.grid(row=2,column=0,columnspan=2)
 		self.entradaNW.grid(row=3,column=1,padx=5)
 
-		self.TipoLl=Label(self.miFrame3,bg="#A5B1B8",text="Tipo de Llamada",fg="black",height=2)
+		self.TipoLl=Label(self.miFrame3,bg="#9BBCD1",text="Tipo de Llamada",fg="black",height=2)
 		self.datoTLl=IntVar()
-		self.botonRea=Radiobutton(self.miFrame3,text="Realizada",variable=self.datoTLl,value=0,state="disabled",bg="#A5B1B8",fg="black",pady=2)
-		self.botonRec=Radiobutton(self.miFrame3,text="Recibida",variable=self.datoTLl,value=1,state="disabled",bg="#A5B1B8",fg="black",pady=2)
+		self.botonRea=Radiobutton(self.miFrame3,text="Realizada",variable=self.datoTLl,value=0,state="disabled",bg="#9BBCD1",fg="black",pady=2)
+		self.botonRec=Radiobutton(self.miFrame3,text="Recibida",variable=self.datoTLl,value=1,state="disabled",bg="#9BBCD1",fg="black",pady=2)
 
 		self.TipoLl.grid(row=2,column=2,padx=50)
 		self.botonRea.grid(row=3,column=2,padx=50)
 		self.botonRec.grid(row=4,column=2,padx=50)
 
-		self.ComenTxt = Label(self.miFrame3,bg="#A5B1B8",text="Observación: ",fg="black",height=2)
+		self.ComenTxt = Label(self.miFrame3,bg="#9BBCD1",text="Observación: ",fg="black",height=2)
 
 		self.Comentarios = Text(self.miFrame3,height = 5, width = 25,state="disabled")
 
@@ -214,16 +272,16 @@ class RealizarOperacion():
 		self.OptionList = ["Carga de Pedido",
 			"Gestión de reclamo","Comunicación de despacho","Pauta de horario","Cliente nuevo","Comunicación para otro sector","Gestión WhatsApp","Gestión por Instagram",
 			"Gestión por Facebook","Gestión Web","Gestión PreVenta","Gestión Autorizada por Supervisor","Saliente ocupado","Saliente no atiende","Saliente numero erróneo"]
-		self.MotivoLl=Label(self.miFrame3,bg="#A5B1B8",text="Seleccione Motivo",fg="black",height=2)
-		self.botonIni=Button(self.miFrame3, text="Iniciar Operacion",bg="#02475B",fg="#42D5FF",width=20,height=0,command=self.iniciarOp)
-		self.botonFin=Button(self.miFrame3, text="Finalizar Operacion",bg="#02475B",fg="#42D5FF",width=20,height=0,state="disabled",command=lambda:self.registrarLlamada(RSTelemarketer))
+		self.MotivoLl=Label(self.miFrame3,bg="#9BBCD1",text="Seleccione Motivo",fg="black",height=2)
+		self.botonIni=Button(self.miFrame3, text="Iniciar Operacion",bg="#2D373D",fg="#42D5FF",width=20,height=0,command=self.iniciarOp)
+		self.botonFin=Button(self.miFrame3, text="Finalizar Operacion",bg="#2D373D",fg="#42D5FF",width=20,height=0,state="disabled",command=lambda:self.registrarLlamada(RSTelemarketer))
 		self.datoMot=StringVar()
 		self.ListaMotivo= ttk.Combobox(self.miFrame3,width=31,textvariable = NO,state="disabled",values=["Carga de Pedido",
 			"Gestión de reclamo","Comunicación de despacho","Pauta de horario","Cliente nuevo","Comunicación para otro sector","Gestión WhatsApp","Gestión por Instagram",
 			"Gestión por Facebook","Gestión Web","Gestión PreVenta","Gestión Autorizada por Supervisor","Saliente ocupado","Saliente no atiende","Saliente numero erróneo"])
 		self.ListaMotivo.current(0)
 		self.proceso=None
-		self.tiempo=Label(self.miFrame3,bg="#A5B1B8", fg='red', font=("","12"))
+		self.tiempo=Label(self.miFrame3,bg="#9BBCD1", fg='red', font=("","12"))
 		self.tiempo.grid(row=7,column=0,columnspan=2)
 		self.proceso=None
 
@@ -235,6 +293,11 @@ class RealizarOperacion():
 
 		self.botonIni.grid(row=6,column=2,pady=50,padx=50)
 		self.botonFin.grid(row=6,column=3,pady=50)
+
+		InicioSesion.entradaUs["state"]="disabled"
+		InicioSesion.entradaPw["state"]="disabled"
+		InicioSesion.botonIngresar["state"]="disabled"
+		master.iconify()
 
 	def iniciarOp(self):
 
@@ -322,7 +385,6 @@ class RealizarOperacion():
 			self.BD.cursor.execute("SELECT * FROM Clientes where IDCliente = %s"% (self.ID,))
 			
 			datos=self.BD.cursor.fetchall()
-			print(datos)
 			self.Nombre=datos[0][1]
 			self.Telefono=datos[0][2]
 			self.Email=datos[0][3]
@@ -415,37 +477,42 @@ class RealizarOperacion():
 
 		return FechaOp
 
-	def Salir(self):
+	def Salir(self,master,Bool):
 
-		if self.EnOperacion:
-			if (messagebox.askyesno(message="¿Esta seguro que desea cerrar?", title="Confirmar Acción",parent=self.raiz)):
-				self.BD.cursor.execute("UPDATE EstadoUsers SET Estado = 'Desconectado' WHERE Usuario = '%s'"% (self.user,))
-				self.BD.cursor.execute("UPDATE EstadoUsers SET ActEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
-				self.BD.cursor.execute("UPDATE EstadoUsers SET TiempoEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
-				self.BD.conn.commit()
-				self.raiz.destroy()
-		else:
+		if not self.EnOperacion or messagebox.askyesno(message="¿Esta seguro que desea cerrar?", title="Confirmar Acción",parent=self.raiz):
 			self.BD.cursor.execute("UPDATE EstadoUsers SET Estado = 'Desconectado' WHERE Usuario = '%s'"% (self.user,))
 			self.BD.cursor.execute("UPDATE EstadoUsers SET ActEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
 			self.BD.cursor.execute("UPDATE EstadoUsers SET TiempoEnCurso = ' ' WHERE Usuario = '%s'"% (self.user,))
 			self.BD.conn.commit()
-			self.raiz.destroy()
+
+			if Bool:
+				InicioSesion.entradaUs["state"]="normal"
+				InicioSesion.entradaPw["state"]="normal"
+				InicioSesion.botonIngresar["state"]="normal"
+				InicioSesion.datoUs.set("")
+				InicioSesion.datoPw.set("")
+				InicioSesion.datoUs.set("")
+				master.deiconify()
+				self.raiz.destroy()
+			else:
+				master.destroy()
 
 class ModificarUsuario:
 
 	def __init__(self,raiz,RSTelemarketer):
-		self.raizResetPass=tk.Toplevel(raiz)
-		self.raizResetPass.focus_set()
-		self.raizResetPass.grab_set()
+		self.raizResetPass=Toplevel(raiz)
+		#self.raizResetPass.focus_set()
+		#self.raizResetPass.grab_set()
+		#self.raizResetPass.iconify()
 		self.raizResetPass.title("Modificar Usuarios            "+RSTelemarketer)
 		self.raizResetPass.resizable(0,0)
 		self.raizResetPass.geometry("600x500")
-		self.frameResetPass=Frame(self.raizResetPass, width=600, height=80,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameResetPass=Frame(self.raizResetPass, width=600, height=80,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.frameResetPass.pack(fill=BOTH,side="top")
-		self.frameResetPass2=Frame(self.raizResetPass, width=600, height=420,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameResetPass2=Frame(self.raizResetPass, width=600, height=420,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.frameResetPass2.pack(fill=BOTH,side="top",expand=YES)
 
-		self.Titulo=Label(self.frameResetPass,bg="#A5B1B8", text="Modificar Usuarios",fg="#323638",font=("Ubuntu",20))
+		self.Titulo=Label(self.frameResetPass,bg="#9BBCD1", text="Modificar Usuarios",fg="#323638",font=("Ubuntu",20))
 		self.Titulo.pack(fill=BOTH,side="top")
 
 		self.EncabezadoM=ttk.Treeview(self.frameResetPass2, columns=[1,2,3,4], show="headings",height=5)
@@ -465,16 +532,16 @@ class ModificarUsuario:
 		self.EncabezadoM.config(yscrollcommand=self.scrolvert.set)
 		self.EncabezadoM.bind('<<TreeviewSelect>>',self.infoUsers)
 
-		self.UsuarioR=Label(self.frameResetPass2,bg="#A5B1B8",text="Usuario:",fg="black",height=2)
-		self.ContraseñaR=Label(self.frameResetPass2,bg="#A5B1B8",text="Contraseña:",fg="black",height=2)
-		self.RazonSocialR=Label(self.frameResetPass2,bg="#A5B1B8",text="Razon Social:",fg="black",height=2)
-		self.Horarios=Label(self.frameResetPass2,bg="#A5B1B8",text="Horarios",fg="black",height=3)
-		self.LunAVie=Label(self.frameResetPass2,bg="#A5B1B8",text="Lunes a Viernes:",fg="black",height=2)
-		self.Sabado=Label(self.frameResetPass2,bg="#A5B1B8",text="Sabado:",fg="black",height=2)
+		self.UsuarioR=Label(self.frameResetPass2,bg="#9BBCD1",text="Usuario:",fg="black",height=2)
+		self.ContraseñaR=Label(self.frameResetPass2,bg="#9BBCD1",text="Contraseña:",fg="black",height=2)
+		self.RazonSocialR=Label(self.frameResetPass2,bg="#9BBCD1",text="Razon Social:",fg="black",height=2)
+		self.Horarios=Label(self.frameResetPass2,bg="#9BBCD1",text="Horarios",fg="black",height=3)
+		self.LunAVie=Label(self.frameResetPass2,bg="#9BBCD1",text="Lunes a Viernes:",fg="black",height=2)
+		self.Sabado=Label(self.frameResetPass2,bg="#9BBCD1",text="Sabado:",fg="black",height=2)
 		self.CheckVar1 = IntVar()
 		self.CheckVar2 = IntVar()
-		self.C1 = Checkbutton(self.frameResetPass2, text = "Activo",bg="#A5B1B8", variable = self.CheckVar1, onvalue = 1, offvalue = 0)
-		self.C2 = Checkbutton(self.frameResetPass2, text = "Privilegios",bg="#A5B1B8", variable = self.CheckVar2, onvalue = 1, offvalue = 0, height=5, width = 20)
+		self.C1 = Checkbutton(self.frameResetPass2, text = "Activo",bg="#9BBCD1", variable = self.CheckVar1, onvalue = 1, offvalue = 0)
+		self.C2 = Checkbutton(self.frameResetPass2, text = "Privilegios",bg="#9BBCD1", variable = self.CheckVar2, onvalue = 1, offvalue = 0, height=5, width = 20)
 		self.datosUsers=""
 		self.datoUsr=StringVar()
 		self.datoPwr=StringVar()
@@ -487,7 +554,7 @@ class ModificarUsuario:
 		self.entradaLaV=Entry(self.frameResetPass2,textvariable=self.datoLaV)
 		self.entradaSab=Entry(self.frameResetPass2,textvariable=self.datoSab)
 
-		self.botonModificar=Button(self.frameResetPass2, text="Modificar Usuario",bg="#02475B",fg="#42D5FF",width=20,height=0,command=self.RealizarModificacion)
+		self.botonModificar=Button(self.frameResetPass2, text="Modificar Usuario",bg="#2D373D",fg="#42D5FF",width=20,height=0,command=self.RealizarModificacion)
 
 
 		self.UsuarioR.grid(row=1,column=0,padx=5)
@@ -602,22 +669,22 @@ class AltaUsuario:
 
 	def __init__(self,raiz):
 		self.raizAltaUser=tk.Toplevel(raiz)
-		self.raizAltaUser.focus_set()
-		self.raizAltaUser.grab_set()
+		#self.raizAltaUser.focus_set()
+		#self.raizAltaUser.grab_set()
 		self.raizAltaUser.title("Alta de Usuarios")
 		self.raizAltaUser.resizable(0,0)
 		self.raizAltaUser.geometry("400x300")
-		self.frameAltaUser=Frame(self.raizAltaUser, width=400, height=80,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameAltaUser=Frame(self.raizAltaUser, width=400, height=80,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.frameAltaUser.pack(fill=BOTH,side="top")
-		self.frameAltaUser2=Frame(self.raizAltaUser, width=400, height=220,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameAltaUser2=Frame(self.raizAltaUser, width=400, height=220,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.frameAltaUser2.pack(fill=BOTH,side="top",expand=YES)
 
-		self.Titulo=Label(self.frameAltaUser,bg="#A5B1B8", text="Alta de Usuario",fg="#323638",font=("Ubuntu",20))
+		self.Titulo=Label(self.frameAltaUser,bg="#9BBCD1", text="Alta de Usuario",fg="#323638",font=("Ubuntu",20))
 		self.Titulo.pack(fill=BOTH,side="top")
 		
-		self.UsuarioAU=Label(self.frameAltaUser2,bg="#A5B1B8",text="Ingrese Usuario Nuevo:",fg="black",height=2)
-		self.ContraseñaAU=Label(self.frameAltaUser2,bg="#A5B1B8",text="Contraseña por Default:",fg="black",height=2)
-		self.RazonSocialAU=Label(self.frameAltaUser2,bg="#A5B1B8",text="Ingrese Razon Social:",fg="black",height=2)
+		self.UsuarioAU=Label(self.frameAltaUser2,bg="#9BBCD1",text="Ingrese Usuario Nuevo:",fg="black",height=2)
+		self.ContraseñaAU=Label(self.frameAltaUser2,bg="#9BBCD1",text="Contraseña por Default:",fg="black",height=2)
+		self.RazonSocialAU=Label(self.frameAltaUser2,bg="#9BBCD1",text="Ingrese Razon Social:",fg="black",height=2)
 		self.datoUsau=StringVar()
 		self.datoPwau=StringVar()
 		self.datoRsau=StringVar()
@@ -635,7 +702,7 @@ class AltaUsuario:
 
 		self.BD=Connection('DatabaseReAcc.db')
 
-		self.botonReaAlt=Button(self.frameAltaUser2, text="Dar de alta",bg="#02475B",fg="#42D5FF",width=15,height=0,command=self.DarAlta)
+		self.botonReaAlt=Button(self.frameAltaUser2, text="Dar de alta",bg="#2D373D",fg="#42D5FF",width=15,height=0,command=self.DarAlta)
 		self.botonReaAlt.grid(row=4,column=0,columnspan=2,pady=10,padx=10)
 
 	def DarAlta(self):
@@ -655,20 +722,20 @@ class ExportarRegistros:
 
 	def __init__(self,raiz,RSTelemarketer):
 		self.raizExpReg=tk.Toplevel(raiz)
-		self.raizExpReg.focus_set()
-		self.raizExpReg.grab_set()
+		#self.raizExpReg.focus_set()
+		#self.raizExpReg.grab_set()
 		self.raizExpReg.title("Exportar Registros            "+RSTelemarketer)
 		self.raizExpReg.resizable(0,0)
 		self.raizExpReg.geometry("1300x650")
-		self.frameExpReg=Frame(self.raizExpReg, width=1300, height=80,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameExpReg=Frame(self.raizExpReg, width=1300, height=80,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.frameExpReg.pack(fill=BOTH,side="top")
-		self.frameExpReg2=Frame(self.raizExpReg, width=1300, height=570,bg="#A5B1B8",relief="groove", borderwidth=5)
+		self.frameExpReg2=Frame(self.raizExpReg, width=1300, height=570,bg="#9BBCD1",relief="groove", borderwidth=5)
 		self.frameExpReg2.pack(fill=BOTH,side="top",expand=YES)
 
-		self.Titulo=Label(self.frameExpReg,bg="#A5B1B8", text="Exportar Registro de Llamadas",fg="#323638",font=("Ubuntu",20))
+		self.Titulo=Label(self.frameExpReg,bg="#9BBCD1", text="Exportar Registro de Llamadas",fg="#323638",font=("Ubuntu",20))
 		self.Titulo.pack(fill=BOTH,side="top")
 			
-		self.TextFI=Label(self.frameExpReg2,bg="#A5B1B8", text="Desde: ",fg="#323638",font=("Ubuntu",10))
+		self.TextFI=Label(self.frameExpReg2,bg="#9BBCD1", text="Desde: ",fg="#323638",font=("Ubuntu",10))
 		self.TextFI.place(x=50,y=9)
 
 		now = datetime.now()
@@ -676,17 +743,17 @@ class ExportarRegistros:
 		self.calendar1 = DateEntry(self.frameExpReg2, selectmode="day", locale="es_AR", year=now.year, month=now.month, day=now.day)
 		self.calendar1.place(x=100,y=10)
 
-		self.TextFF=Label(self.frameExpReg2,bg="#A5B1B8", text="Hasta: ",fg="#323638",font=("Ubuntu",10))
+		self.TextFF=Label(self.frameExpReg2,bg="#9BBCD1", text="Hasta: ",fg="#323638",font=("Ubuntu",10))
 		self.TextFF.place(x=200,y=9)
 
 		self.calendar2 = DateEntry(self.frameExpReg2, selectmode="day", locale="es_AR", year=now.year, month=now.month, day=now.day)
 		self.calendar2.place(x=250,y=10)
 
 
-		self.botonBusReg=Button(self.frameExpReg2, text="Buscar",bg="#02475B",fg="#42D5FF",width=15,height=0,command=self.filtrado2)
+		self.botonBusReg=Button(self.frameExpReg2, text="Buscar",bg="#2D373D",fg="#42D5FF",width=15,height=0,command=self.filtrado2)
 		self.botonBusReg.grid(row=0,column=1,pady=8,padx=200)	
 
-		self.botonExpReg=Button(self.frameExpReg2, text="Exportar",bg="#02475B",fg="#42D5FF",width=15,height=0,command= self.Exportan2)
+		self.botonExpReg=Button(self.frameExpReg2, text="Exportar",bg="#2D373D",fg="#42D5FF",width=15,height=0,command= self.Exportan2)
 		self.botonExpReg.grid(row=2,column=1,columnspan=3)	
 
 		self.BD=Connection('DatabaseReAcc.db')
@@ -731,47 +798,7 @@ class ExportarRegistros:
 		self.datosExp = ""
 
 	def filtrado2(self):
-		'''
-		pos=0
-		if calendar1.get_date()[2]=="/":
-			dia1=calendar1.get_date()[0]+calendar1.get_date()[1]
-			dia1=int(dia1)
-			pos=3
-		else:
-			dia1=calendar1.get_date()[0]
-			dia1=int(dia1)
-			pos=2
-		if calendar1.get_date()[pos+2]=="/":
-			mes1=calendar1.get_date()[pos]+calendar1.get_date()[pos+1]
-			pos=pos+3
-			mes1=int(mes1)
-		else:
-			mes1=calendar1.get_date()[pos]
-			pos=pos+2
-			mes1=int(mes1)
-		año1="20"+calendar1.get_date()[pos]+calendar1.get_date()[pos+1]
-		año1=int(año1)
 
-		pos=0
-		if calendar2.get_date()[2]=="/":
-			dia2=calendar2.get_date()[0]+calendar2.get_date()[1]
-			dia2=int(dia2)
-			pos=3
-		else:
-			dia2=calendar2.get_date()[0]
-			dia2=int(dia2)
-			pos=2
-		if calendar2.get_date()[pos+2]=="/":
-			mes2=calendar2.get_date()[pos]+calendar2.get_date()[pos+1]
-			pos=pos+3
-			mes2=int(mes2)
-		else:
-			mes2=calendar2.get_date()[pos]
-			pos=pos+2
-			mes2=int(mes2)
-		año2="20"+calendar2.get_date()[pos]+calendar2.get_date()[pos+1]
-		año2=int(año2)
-		'''
 		if self.calendar1.get_date()>self.calendar2.get_date():
 			messagebox.showerror("Fechas Erroneas","Por favor elija un rango de fecha valido",parent=self.raizExpReg)
 			return
@@ -828,6 +855,102 @@ class ExportarRegistros:
 		messagebox.showinfo("Operación Realizada con Éxito","El archivo se exportó correctamente",parent=self.raizExpReg)
 		#except:
 		#	messagebox.showerror("Operación Fallida","No se pudo exportar el archivo",parent=self.raizExpReg)
+
+class EstadoUsers:
+	global raiz
+	global datosExp
+	global raizExpReg
+	global botonActEst
+	global style
+	global raizUser
+	global pruebatxt
+
+	def __init__(self,raiz,RSTelemarketer):
+		self.raizEstUs=tk.Toplevel(raiz)
+		#self.raizEstUs.focus_set()
+		#self.raizEstUs.grab_set()
+		self.raizEstUs.title("Estado de Usuarios            "+RSTelemarketer)
+		self.raizEstUs.resizable(0,0)
+		self.raizEstUs.geometry("1150x400")
+		self.frameEstUs=Frame(self.raizEstUs, width=1150, height=80,bg="#9BBCD1",relief="groove", borderwidth=5)
+		self.frameEstUs.pack(fill=BOTH,side="top")
+		self.frameEstUs2=Frame(self.raizEstUs, width=1150, height=420,bg="#9BBCD1",relief="groove", borderwidth=5)
+		self.frameEstUs2.pack(fill=BOTH,side="top",expand=YES)
+
+		self.Titulo=Label(self.frameEstUs,bg="#9BBCD1", text="Ver Estado de Usuarios",fg="#323638",font=("Ubuntu",20))
+		self.Titulo.pack(fill=BOTH,side="top")
+
+		#pruebatxt=Label(seframeEstUs,bg="#9BBCD1", fg='red', font=("","12"))
+
+		self.BD=Connection('DatabaseReAcc.db')
+
+		self.style = ttk.Style()
+		self.style.map('Treeview', foreground=self.fixed_map('foreground'), background=self.fixed_map('background'),fieldbackground=self.fixed_map('fieldbackground'))
+
+		self.EncabezadoAE=ttk.Treeview(self.frameEstUs2, columns=[1,2,3,4,5,6,7], show="headings",height=8)
+		self.EncabezadoAE.column("#1", minwidth = 80, width=80, stretch=NO)
+		self.EncabezadoAE.column("#2", minwidth = 180, width=180, stretch=NO)
+		self.EncabezadoAE.column("#3", minwidth = 190, width=190, stretch=NO)
+		self.EncabezadoAE.column("#4", minwidth = 180, width=180, stretch=NO)
+		self.EncabezadoAE.column("#5", minwidth = 190, width=190, stretch=NO)
+		self.EncabezadoAE.column("#6", minwidth = 180, width=180, stretch=NO)
+		self.EncabezadoAE.column("#7", minwidth = 120, width=120, stretch=NO)
+
+		self.EncabezadoAE.heading(1, text = "Usuario", anchor = W)
+		self.EncabezadoAE.heading(2, text = "Razon Social", anchor = W)
+		self.EncabezadoAE.heading(3, text = "Ultima Actividad", anchor = W)
+		self.EncabezadoAE.heading(4, text = "Hora Actividad Finalizada", anchor = W)
+		self.EncabezadoAE.heading(5, text = "Actividad Realizando", anchor = W)
+		self.EncabezadoAE.heading(6, text = "Tiempo en Actividad", anchor = W)
+		self.EncabezadoAE.heading(7, text = "Estado", anchor = W)
+		
+		self.EncabezadoAE.grid(row=1,column=0,columnspan=5,padx=5,pady=10)
+
+		self.ActualizarEstados()
+
+	def fixed_map(self,option):
+		
+		return [elm for elm in self.style.map('Treeview', query_opt=option) if
+			elm[:2] != ('!disabled', '!selected')]
+
+	def ActualizarEstados(self):
+
+		self.BD.cursor.execute("SELECT Usuario,RazonSocial,UltimaActividad,HoraActFin,ActEnCurso,TiempoEnCurso,Estado FROM EstadoUsers WHERE Activo=1")
+		datos=self.BD.cursor.fetchall()
+		datos2=[]
+		datosExp=datos
+
+		self.EncabezadoAE.delete(*self.EncabezadoAE.get_children())
+		#Encabezado.tag_configure('fuente', font=("Arial", 10))
+		#Encabezado.tag_configure("gray", background='lightgray')
+		self.EncabezadoAE.tag_configure('white', foreground='#EEFFFF')
+		self.EncabezadoAE.tag_configure("red",background="#E50000")
+		self.EncabezadoAE.tag_configure("green",background="dark green")
+		self.EncabezadoAE.tag_configure("gray", background="lightgray")
+
+		for y in range(len(datos)):
+			for x in datos[y]:
+				datos2.append(x)
+
+			if datos2[6]=='Disponible':
+				self.EncabezadoAE.insert("",tk.END,tag=("green","white"),values=datos2)
+			else:
+				if datos2[6]=='Ocupado':
+					self.EncabezadoAE.insert("",tk.END,tag=("red","white"),values=datos2)
+				else:
+					self.EncabezadoAE.insert("",tk.END,tag="gray",values=datos2)
+			datos2=[]
+			
+		procesoact=self.Titulo.after(1000, self.ActualizarEstados)
+
+
+	#scrolvert = Scrollbar(frameEstUs2, command = EncabezadoER.yview)
+	#scrolvert.grid(row=1, column=6, sticky="nsew")
+	#EncabezadoER.config(yscrollcommand=scrolvert.set)
+
+	#scrolhoriz = Scrollbar(frameExpReg2, command = frameExpReg2.yview, orient='horizontal')
+	#scrolhoriz.grid(row=1, column=0, sticky="news")
+	#EncabezadoER.config(xscrollcommand=scrolhoriz.set)
 
 
 if __name__ == '__main__':
