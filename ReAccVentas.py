@@ -7,6 +7,7 @@ from tkinter import messagebox
 from tkinter import filedialog
 from tkinter import *
 from datetime import datetime, timedelta
+import calendar
 from tkcalendar import Calendar, DateEntry
 import xlsxwriter
 from matplotlib.figure import Figure
@@ -168,7 +169,6 @@ class RealizarOperacion():
 		self.miFrame3.pack(fill=BOTH,side="top",expand=YES)
 
 		self.user=user
-		#self.privilegios = privilegios
 		self.BD=Connection('DatabaseReAcc.db')
 
 		self.proceso2=None
@@ -285,9 +285,6 @@ class RealizarOperacion():
 		self.tiempo.grid(row=7,column=0,columnspan=2)
 		self.proceso=None
 
-		#datoMot.set(OptionList[0])
-		#ListaMotivo = OptionMenu(miFrame3,datoMot,*OptionList)
-		#readonly
 		self.MotivoLl.grid(row=0,column=2)
 		self.ListaMotivo.grid(row=1,column=2,padx=50)
 
@@ -320,7 +317,7 @@ class RealizarOperacion():
 
 		now = datetime.now()
 
-		self.HoraIni=self.FormatoTiempo(str(now.hour),str(now.minute),str(now.second))
+		self.HoraIni=now.strftime("%H:%M:%S")
 
 		self.iniciarCrono()
 
@@ -336,7 +333,7 @@ class RealizarOperacion():
 				if h >= 24:
 					h=0
 
-		crono= self.FormatoTiempo(str(h),str(m),str(s))
+		crono= datetime.strptime("%s:%s:%s"%(h,m,s,), '%H:%M:%S').strftime("%H:%M:%S")
 
 		if self.EnOperacion:
 			self.tiempo['text'] = crono
@@ -348,7 +345,7 @@ class RealizarOperacion():
 		    # iniciamos la cuenta progresiva de los segundos
 			self.proceso=self.tiempo.after(1000, self.iniciarCrono, (h), (m), (s+1))
 		else:
-			crono="-"+crono
+			crono="-"+str(crono)
 		    #etiqueta que muestra el cronometro en pantalla
 			self.tiempo2['text'] = crono
 
@@ -357,24 +354,6 @@ class RealizarOperacion():
 		    # iniciamos la cuenta progresiva de los segundos
 			self.proceso2=self.tiempo2.after(1000, self.iniciarCrono, (h), (m), (s+1))
 				
-
-	def FormatoTiempo(self,h,m,s):
-
-		if len(h)==1:
-			hora="0"+h+":"
-		else:
-			hora=h+":"
-
-		if len(m)==1:
-			hora=hora+"0"+m+":"
-		else:
-			hora=hora+m+":"
-		if len(s)==1:
-			hora=hora+"0"+s
-		else:
-			hora=hora+s
-
-		return hora
 
 	def filtrarCliente(self,*args):
 
@@ -411,10 +390,10 @@ class RealizarOperacion():
 
 			now = datetime.now()
 
-			self.HoraFin=self.FormatoTiempo(str(now.hour),str(now.minute),str(now.second))
+			self.HoraFin=now.strftime("%H:%M:%S")
 
 			self.tiempo.after_cancel(self.proceso)
-			FechaOp=self.calcularFech()
+			FechaOp=now.strftime("%Y-%m-%d 00:00:00")
 
 			try:
 				self.BD.cursor.execute("INSERT INTO LlamadasVtas(IDCliente,RazonSocial,CorreoNuevo,NumeroWp,TipoLlamada,MotivoLlamada,Telemarketer,Fecha,horaInicio,horaFin,duracionOp,RealizoCompra,Observaciones) VALUES(%s,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')" % 
@@ -434,8 +413,7 @@ class RealizarOperacion():
 				self.iniciarCrono()
 				messagebox.showinfo("Operación Exitosa","La actividad fue registrada correctamente con ID '%s'" % (str(datos[0][0]),),parent=self.raiz)
 			except:
-				messagebox.showerror("Operación Fallida","No se pudo acceder a la Base de Datos",parent=self.raiz)
-			#print(entradaCN.get()," ",datoTLl.get()," ",datoMot.get())
+				messagebox.showerror("Operación Fallida","No se pudo acceder a la Base de Datos para completar el registro",parent=self.raiz)
 			self.Nombre=""
 
 			self.entradaID["state"]="disabled"
@@ -458,24 +436,6 @@ class RealizarOperacion():
 			self.ID=0
 		else:
 			messagebox.showerror("Operación Fallida","Por favor, primero filtre un Cliente",parent=self.raiz)
-
-	def calcularFech(self):
-
-		now = datetime.now()
-		if len(str(now.day))==1:
-			FechaOp="0"+str(now.day)+"/"
-		else:
-			FechaOp=str(now.day)+"/"
-		if len(str(now.month))==1:
-			FechaOp=FechaOp+"0"+str(now.month)+"/"
-		else:
-			FechaOp=FechaOp+str(now.month)+"/"
-		if len(str(now.year))==1:
-			FechaOp=FechaOp+"0"+str(now.year)
-		else:
-			FechaOp=FechaOp+str(now.year)
-
-		return FechaOp
 
 	def Salir(self,master,Bool):
 
@@ -628,18 +588,6 @@ class ModificarUsuario:
 
 
 	def infoUsers(self,event):
-		global EncabezadoM
-		global datosUsers
-		global datoUsr
-		global datoPwr 
-		global datoRsr
-		global datoLaV
-		global datoSab
-		global entradaUsr
-		global entradaPwr
-		global entradaRsr
-		global CheckVar1
-		global CheckVar2
 
 		item=event.widget.selection()
 		self.datosUsers=self.EncabezadoM.item(item[0])["values"]
@@ -804,26 +752,26 @@ class ExportarRegistros:
 			return
 
 		self.EncabezadoER.delete(*self.EncabezadoER.get_children())
-		#try:
+		try:
 
-		self.BD.cursor.execute("SELECT * FROM (SELECT * FROM LlamadasVtas Where Fecha >= '%s') Where Fecha <= '%s'" % (str(self.calendar1.get_date()),str(self.calendar2.get_date())+" 00:00:00.000",))
-		
-		datos = self.BD.cursor.fetchall()
+			self.BD.cursor.execute("SELECT * FROM (SELECT * FROM LlamadasVtas Where Fecha >= '%s') Where Fecha <= '%s'" % (str(self.calendar1.get_date()),str(self.calendar2.get_date())+" 00:00:00.000",))
+			
+			datos = self.BD.cursor.fetchall()
 
-		datos2=[]
-		self.datosExp=datos
-		for y in range(len(datos)):
-			for x in datos[y]:
-				datos2.append(x)
-			if datos2[12]:
-				datos2.insert(13, 'Si')
-			else:
-				datos2.insert(13, 'No')
-			datos2.pop(12)
-			self.EncabezadoER.insert("", 0,values=datos2)
 			datos2=[]
-		#except:
-			#messagebox.showerror("Operación Fallida","No se pudo acceder a la Base de Datos")	
+			self.datosExp=datos
+			for y in range(len(datos)):
+				for x in datos[y]:
+					datos2.append(x)
+				if datos2[12]:
+					datos2.insert(13, 'Si')
+				else:
+					datos2.insert(13, 'No')
+				datos2.pop(12)
+				self.EncabezadoER.insert("", 0,values=datos2)
+				datos2=[]
+		except:
+			messagebox.showerror("Operación Fallida","Error al Obtener Registros")	
 
 	def Exportan2(self):
 
@@ -831,39 +779,32 @@ class ExportarRegistros:
 		if f is None: # asksaveasfile return `None` if dialog closed with "cancel".
 			return
 
-		#try:
-		libro = xlsxwriter.Workbook(f.name)
-		hoja = libro.add_worksheet()
-		Cabecera=["IDLlamada","IDCliente","Razon Social","E-mail","Numero WhatsApp","Tipo Llamada","Motivo Llamada","Telemarketer","Fecha","Hora Inicio","Hora Fin","Duración","Compro","Observaciones"]
-		
-		for x in range(len(Cabecera)):
-			hoja.write(0, x, Cabecera[x])
+		try:
+			libro = xlsxwriter.Workbook(f.name)
+			hoja = libro.add_worksheet()
+			Cabecera=["IDLlamada","IDCliente","Razon Social","E-mail","Numero WhatsApp","Tipo Llamada","Motivo Llamada","Telemarketer","Fecha","Hora Inicio","Hora Fin","Duración","Compro","Observaciones"]
+			
+			for x in range(len(Cabecera)):
+				hoja.write(0, x, Cabecera[x])
 
-		for y in range(len(self.datosExp)):
-			for x in range(8):
-				hoja.write(y+1, x, self.datosExp[y][x])
-			hoja.write(y+1, 8, datetime.strptime(str(self.datosExp[y][8]), '%Y-%m-%d %H:%M:%S'))
-			hoja.write(y+1, 9, datetime.strptime(str(self.datosExp[y][9]), '%H:%M:%S'))
-			hoja.write(y+1, 10, datetime.strptime(str(self.datosExp[y][10]), '%H:%M:%S'))
-			hoja.write(y+1, 11, datetime.strptime(str(self.datosExp[y][11]), '%H:%M:%S'))
-			if self.datosExp[y][12]:
-				hoja.write(y+1, 12, "Si")
-			else:
-				hoja.write(y+1, 12, "No")
-			hoja.write(y+1,13,self.datosExp[y][13])
-		libro.close()
-		messagebox.showinfo("Operación Realizada con Éxito","El archivo se exportó correctamente",parent=self.raizExpReg)
-		#except:
-		#	messagebox.showerror("Operación Fallida","No se pudo exportar el archivo",parent=self.raizExpReg)
+			for y in range(len(self.datosExp)):
+				for x in range(8):
+					hoja.write(y+1, x, self.datosExp[y][x])
+				hoja.write(y+1, 8, datetime.strptime(str(self.datosExp[y][8]), '%Y-%m-%d %H:%M:%S'))
+				hoja.write(y+1, 9, datetime.strptime(str(self.datosExp[y][9]), '%H:%M:%S'))
+				hoja.write(y+1, 10, datetime.strptime(str(self.datosExp[y][10]), '%H:%M:%S'))
+				hoja.write(y+1, 11, datetime.strptime(str(self.datosExp[y][11]), '%H:%M:%S'))
+				if self.datosExp[y][12]:
+					hoja.write(y+1, 12, "Si")
+				else:
+					hoja.write(y+1, 12, "No")
+				hoja.write(y+1,13,self.datosExp[y][13])
+			libro.close()
+			messagebox.showinfo("Operación Realizada con Éxito","El archivo se exportó correctamente",parent=self.raizExpReg)
+		except:
+			messagebox.showerror("Operación Fallida","No se pudo exportar el archivo",parent=self.raizExpReg)
 
 class EstadoUsers:
-	global raiz
-	global datosExp
-	global raizExpReg
-	global botonActEst
-	global style
-	global raizUser
-	global pruebatxt
 
 	def __init__(self,raiz,RSTelemarketer):
 		self.raizEstUs=tk.Toplevel(raiz)
@@ -879,8 +820,6 @@ class EstadoUsers:
 
 		self.Titulo=Label(self.frameEstUs,bg="#9BBCD1", text="Ver Estado de Usuarios",fg="#323638",font=("Ubuntu",20))
 		self.Titulo.pack(fill=BOTH,side="top")
-
-		#pruebatxt=Label(seframeEstUs,bg="#9BBCD1", fg='red', font=("","12"))
 
 		self.BD=Connection('DatabaseReAcc.db')
 
@@ -921,8 +860,6 @@ class EstadoUsers:
 		datosExp=datos
 
 		self.EncabezadoAE.delete(*self.EncabezadoAE.get_children())
-		#Encabezado.tag_configure('fuente', font=("Arial", 10))
-		#Encabezado.tag_configure("gray", background='lightgray')
 		self.EncabezadoAE.tag_configure('white', foreground='#EEFFFF')
 		self.EncabezadoAE.tag_configure("red",background="#E50000")
 		self.EncabezadoAE.tag_configure("green",background="dark green")
@@ -944,13 +881,207 @@ class EstadoUsers:
 		procesoact=self.Titulo.after(1000, self.ActualizarEstados)
 
 
-	#scrolvert = Scrollbar(frameEstUs2, command = EncabezadoER.yview)
-	#scrolvert.grid(row=1, column=6, sticky="nsew")
-	#EncabezadoER.config(yscrollcommand=scrolvert.set)
 
-	#scrolhoriz = Scrollbar(frameExpReg2, command = frameExpReg2.yview, orient='horizontal')
-	#scrolhoriz.grid(row=1, column=0, sticky="news")
-	#EncabezadoER.config(xscrollcommand=scrolhoriz.set)
+class ReporteHoras:
+
+	def __init__(self,raiz,RSTelemarketer):
+		self.raizRepHor=tk.Toplevel(raiz)
+		#self.raizRepHor.focus_set()
+		#self.raizRepHor.grab_set()
+		self.raizRepHor.title("Reporte de Horas            "+RSTelemarketer)
+		self.raizRepHor.resizable(0,0)
+		self.raizRepHor.geometry("1200x650")
+		self.frameRepHor=Frame(self.raizRepHor, width=1200, height=80,bg="#9BBCD1",relief="groove", borderwidth=5)
+		self.frameRepHor.pack(fill=BOTH,side="top")
+		self.frameRepHor2=Frame(self.raizRepHor, width=1200, height=570,bg="#9BBCD1",relief="groove", borderwidth=5)
+		self.frameRepHor2.pack(fill=BOTH,side="top",expand=YES)
+
+		self.BD=Connection('DatabaseReAcc.db')
+		self.meses=["Enero","Febrero","Marzo",
+			"Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
+
+		Titulo=Label(self.frameRepHor,bg="#9BBCD1", text="Reporte de Horas Realizadas",fg="#323638",font=("Ubuntu",20))
+		Titulo.pack(fill=BOTH,side="top")
+
+		self.fig = Figure(figsize=(9, 8), dpi=60)
+		self.fig.add_subplot(111).plot([], [], marker = 'o')
+		self.fig.set_facecolor('#9BBCD1')
+
+		self.fig2 = Figure(figsize=(7, 6), dpi=80)
+		self.fig2.add_subplot(111).pie([100,0], labels=["Tiempo Productivo","Tiempo Improductivo"],colors= ["Green","Red"],autopct="%0.1f %%")
+		self.fig2.set_facecolor('#9BBCD1')
+		#fig2.add_subplot(111).axis("equal")
+
+
+		self.canvas = FigureCanvasTkAgg(self.fig, master=self.frameRepHor2)  # A tk.DrawingArea.
+		self.canvas.draw()
+		#canvas.get_tk_widget().grid(row=0,column=0,pady=5)
+
+		self.toolbar = NavigationToolbar2Tk(self.canvas, self.frameRepHor2)
+		self.toolbar.update()
+		#toolbar.pack(side="bottom",anchor=W)
+		self.canvas.get_tk_widget().place(x=10,y=50)
+
+
+		self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self.frameRepHor2)  # A tk.DrawingArea.
+		self.canvas2.draw()
+		#canvas.get_tk_widget().grid(row=0,column=0,pady=5)
+
+		self.toolbar2 = NavigationToolbar2Tk(self.canvas2, self.frameRepHor2)
+		self.toolbar2.update()
+		#toolbar2.pack(side="bottom",anchor=W)
+		self.canvas2.get_tk_widget().place(x=570,y=50)
+		self.toolbar.place(x=0,y=550)
+		self.toolbar2.place(x=570,y=550)
+
+		self.botonGenRep=Button(self.frameRepHor2, text="Generar Reporte",bg="#2D373D",fg="#42D5FF",width=15,height=0,command=lambda:self.GenerarReporteH())
+		self.botonGenRep.place(x=650,y=500)
+
+		self.DatCabecera = []
+
+		self.botonExpor=Button(self.frameRepHor2, text="Exportar Reporte",bg="#2D373D",state="disabled",fg="#42D5FF",width=15,height=0,command=lambda:self.ExportarReporteH())
+		self.botonExpor.place(x=800,y=500)
+	
+		self.ListaTmk= ttk.Combobox(self.frameRepHor2,width=25,textvariable = NO,state="readonly",values=self.ObtenerTelemarketers())
+		self.ListaTmk.current(0)
+		self.ListaTmk.place(x=30,y=50)
+		self.prueb=StringVar()
+
+		self.ListaAno= ttk.Combobox(self.frameRepHor2,width=15,state="readonly",values=self.ObtenerYears())
+		self.ListaAno.place(x=450,y=50)
+		self.ListaAno.current(0)
+
+		self.ListaMes= ttk.Combobox(self.frameRepHor2,width=15,state="readonly",values=self.ObtenerMonths())
+		self.ListaMes.place(x=300,y=50)
+		self.ListaMes.current(0)
+
+		self.SelecTmk=Label(self.frameRepHor2,bg="#9BBCD1", text="Seleccione Telemarketer",fg="#323638",font=("Ubuntu",10))
+		self.SelecTmk.place(x=30,y=25)
+		self.SelecMes=Label(self.frameRepHor2,bg="#9BBCD1", text="Mes:",fg="#323638",font=("Ubuntu",10))
+		self.SelecMes.place(x=300,y=25)
+		self.SelecAno=Label(self.frameRepHor2,bg="#9BBCD1", text="Año:",fg="#323638",font=("Ubuntu",10))
+		self.SelecAno.place(x=450,y=25)
+
+
+	def ObtenerTelemarketers(self):
+		self.BD.cursor.execute("SELECT RazonSocial FROM UsersVentas where estado = 1 and privilegios = 0  order by RazonSocial")
+		datos=self.BD.cursor.fetchall()
+		salida=[]
+
+		for x in range(len(datos)):
+			salida.append(datos[x][0])
+
+		return salida
+
+	def ObtenerYears(self):
+		#self.BD.cursor.execute("SELECT YEAR(Min(Fecha)), YEAR(Max(Fecha)) FROM LlamadasVtas")
+		self.BD.cursor.execute("SELECT Min(Fecha), Max(Fecha) FROM LlamadasVtas")
+		datos=self.BD.cursor.fetchall()[0]
+		salida=[]
+		for x in range(len(datos)):
+			#salida.append(datos[x])
+			salida.append(int(datetime.strptime(datos[x], '%Y-%m-%d %H:%M:%S').strftime("%Y")))
+
+		return set(salida)
+
+	def ObtenerMonths(self):
+		#self.BD.cursor.execute("SELECT MONTH(Max(Fecha)) FROM LlamadasVtas WHERE YEAR(Fecha) = '%s'"% (year,))
+		self.BD.cursor.execute("SELECT Min(Fecha), Max(Fecha) FROM LlamadasVtas")
+		datos=self.BD.cursor.fetchall()[0]
+
+		salida=self.meses[int(datetime.strptime(datos[0], '%Y-%m-%d %H:%M:%S').strftime("%m"))-1:int(datetime.strptime(datos[1], '%Y-%m-%d %H:%M:%S').strftime("%m"))-1]
+
+		return salida
+
+	def GenerarReporteH(self):
+
+		meses=["01","02","03","04","05","06","07","08","09","10","11","12"]
+
+		self.BD.cursor.execute("SELECT * FROM (SELECT Telemarketer,duracionOP,Fecha FROM LlamadasVtas WHERE Fecha >= '%s-%s-01') WHERE Fecha < '%s-%s-01'"% (self.ListaAno.get(),meses[self.meses.index(self.ListaMes.get())],self.ListaAno.get(),meses[self.meses.index(self.ListaMes.get())+1],))
+
+		datos=self.BD.cursor.fetchall()
+		dataimp=[]
+
+		for x in range(len(datos)):
+			if self.ListaTmk.get() in str(datos[x][0]):
+				dataimp.append(datos[x])
+
+		marca=str(dataimp[0][2])
+		horasacum=datetime.strptime('00:00:00', '%H:%M:%S')
+
+		diasT=[]
+		horasT=[]
+		horasLaborales=0
+
+		self.BD.cursor.execute("SELECT horasLaV, horasSab FROM UsersVentas WHERE RazonSocial = '%s'"% (self.ListaTmk.get(),))
+		dataHoras=self.BD.cursor.fetchall()
+
+		horasLaV=dataHoras[0][0]
+		horasSab=dataHoras[0][1]
+
+		for x in range(len(dataimp)):
+
+			if marca!=str(dataimp[x][2]):
+				diasT.append(marca[8:10])
+				horasT.append(horasacum)
+				marca=str(dataimp[x][2])
+				horasacum=datetime.strptime('00:00:00', '%H:%M:%S')
+
+				if calendar.weekday(int(self.ListaAno.get()), int(meses[self.meses.index(self.ListaMes.get())]), int(marca[8:10])) != 5:
+					horasLaborales+=horasLaV
+				else:
+					horasLaborales+=horasSab
+
+			horasacum= horasacum + timedelta(seconds=int(dataimp[x][1][6:8]), minutes=int(dataimp[x][1][3:5]), hours=int(dataimp[x][1][0:2]))
+
+		for x in range(len(horasT)):
+			horasT[x]=int(str(horasT[x])[12])+int(str(horasT[x])[14:16])/60
+
+		self.fig.clear() 
+		self.fig2.clear()
+		if diasT!=[]:
+			
+			self.fig.add_subplot(111).plot(diasT, horasT, marker = 'o')
+			self.canvas.draw()
+
+			self.fig2.add_subplot(111).pie([sum(horasT),horasLaborales - sum(horasT)], labels=["Tiempo Productivo","Tiempo Improductivo"],colors= ["Green","Red"], autopct="%1.1f %%")
+			self.canvas2.draw()
+
+			self.DatCabecera = [self.ListaTmk.get(),self.ListaMes.get(),self.ListaAno.get(),diasT,horasT]
+			self.botonExpor["state"]="normal"
+		else:
+			self.botonExpor["state"]="disabled"
+			messagebox.showerror("No existen datos","Este Telemarketer no trabajo en el mes de %s"%(self.ListaMes.get(),))
+
+	def ExportarReporteH(self):
+		f = filedialog.asksaveasfile(mode='a',defaultextension=".xlsx", filetypes=[("Ficheros Excel","*.xlsx")])
+		if f is None: # asksaveasfile return `None` if dialog closed with "cancel".
+			return
+
+		try:
+			libro = xlsxwriter.Workbook(f.name)
+			hoja = libro.add_worksheet()
+			
+			Cabecera= ["Telemarketer","Mes","Año"]
+
+			Data=["Dia","Horas"]
+			
+			for x in range(len(Cabecera)):
+				hoja.write(0, x, Cabecera[x])
+
+			for x in range(3):
+				hoja.write(1, x, self.DatCabecera[x])
+
+			for x in range(2):
+				hoja.write(3, x, Data[x])
+
+			for y in range(len(self.DatCabecera[3])):
+				for x in range(2):
+					hoja.write(y+4, x, self.DatCabecera[x+3][y])
+
+			libro.close()
+		except:
+			messagebox.showerror("No se pudo exportar el Reporte","Se generó un error en la exportación de los datos")
 
 
 if __name__ == '__main__':
